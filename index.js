@@ -5,6 +5,7 @@ exports.PrimitiveType = require('./lib/JavaType').PrimitiveJavaType;
 exports.ArrayType = require('./lib/JavaType').ArrayJavaType;
 exports.CEIType = require('./lib/JavaType').CEIJavaType;
 exports.UnresolvedType = require('./lib/JavaType').UnresolvedType;
+exports.signatureToType = require('./lib/JavaType').signatureToType;
 exports.Method = require('./lib/Method').Method;
 exports.Field = require('./lib/Field').Field;
 exports.Constructor = require('./lib/Constructor').Constructor;
@@ -20,5 +21,8 @@ exports.TypeArgument = require('./lib/TypeVariable').TypeArgument;
 //     // @ts-ignore
 //     const packages = new Set([...types.values()].filter(t => t instanceof CEIJavaType).map(t => t.packageName));
 //     console.log(`Loaded ${types.size} types from ${packages.size} packages in ${Date.now() - loadstart}ms`);
+//     // const strarr = exports.signatureToType('java/util/ArrayList<Ljava/lang/String;>', types);
+//     // const strarr2 = exports.signatureToType('java/util/ArrayList<Ljava/lang/String;>', types);
+//     // const strarr3 = exports.signatureToType('jova/util/ArrayList', types);
 //     types.size;
 // })
