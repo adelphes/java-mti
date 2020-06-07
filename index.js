@@ -5,6 +5,7 @@ exports.PrimitiveType = require('./lib/JavaType').PrimitiveJavaType;
 exports.ArrayType = require('./lib/ArrayType').ArrayJavaType;
 exports.CEIType = require('./lib/JavaType').CEIJavaType;
 exports.UnresolvedType = require('./lib/JavaType').UnresolvedType;
+exports.WildcardType = require('./lib/JavaType').WildcardType;
 exports.signatureToType = require('./lib/JavaType').signatureToType;
 exports.Method = require('./lib/Method').Method;
 exports.Field = require('./lib/Field').Field;
