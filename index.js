@@ -2,7 +2,7 @@
 exports.loadAndroidLibrary = require('./android-library').loadAndroidLibrary;
 exports.JavaType = require('./lib/JavaType').JavaType;
 exports.PrimitiveType = require('./lib/JavaType').PrimitiveJavaType;
-exports.ArrayType = require('./lib/JavaType').ArrayJavaType;
+exports.ArrayType = require('./lib/ArrayType').ArrayJavaType;
 exports.CEIType = require('./lib/JavaType').CEIJavaType;
 exports.UnresolvedType = require('./lib/JavaType').UnresolvedType;
 exports.signatureToType = require('./lib/JavaType').signatureToType;
