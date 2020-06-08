@@ -8,6 +8,7 @@ exports.UnresolvedType = require('./lib/JavaType').UnresolvedType;
 exports.WildcardType = require('./lib/JavaType').WildcardType;
 exports.signatureToType = require('./lib/JavaType').signatureToType;
 exports.Method = require('./lib/Method').Method;
+exports.MethodBase = require('./lib/MethodBase').MethodBase;
 exports.Field = require('./lib/Field').Field;
 exports.Constructor = require('./lib/Constructor').Constructor;
 exports.Parameter = require('./lib/Parameter').Parameter;
