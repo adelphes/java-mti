@@ -7,6 +7,7 @@ exports.CEIType = require('./lib/JavaType').CEIJavaType;
 exports.UnresolvedType = require('./lib/JavaType').UnresolvedType;
 exports.TypeVariableType = require('./lib/JavaType').TypeVariableType;
 exports.WildcardType = require('./lib/JavaType').WildcardType;
+exports.NullType = require('./lib/JavaType').NullType;
 exports.signatureToType = require('./lib/JavaType').signatureToType;
 exports.Method = require('./lib/Method').Method;
 exports.MethodBase = require('./lib/MethodBase').MethodBase;
