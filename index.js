@@ -17,6 +17,7 @@ exports.Constructor = require('./lib/Constructor').Constructor;
 exports.Parameter = require('./lib/Parameter').Parameter;
 exports.TypeVariable = require('./lib/TypeVariable').TypeVariable;
 exports.TypeArgument = require('./lib/TypeVariable').TypeArgument;
+exports.InferredTypeArgument = require('./lib/TypeVariable').InferredTypeArgument;
 
 // const { loadAndroidLibrary } = require('./android-library');
 // const { CEIJavaType } = require('./lib/JavaType');
