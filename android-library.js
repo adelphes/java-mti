@@ -1,15 +1,12 @@
-/**
- * @typedef {import('./lib/JavaType').JavaType} JavaType
- */
 const fs = require('fs');
 const path = require('path');
 const unzipper = require('unzipper');
 const JarClassDecoder = require('./lib/jartypedecoder');
 const FJP = require('./lib/fjp');
-const { CompiledJavaType, PrimitiveJavaType } = require('./lib/JavaType');
+const { CEIJavaType, CompiledJavaType } = require('./lib/JavaType');
 
 function newTypeMap() {
-    /** @type {Map<string,JavaType>} */
+    /** @type {Map<string,CEIJavaType>} */
     const typemap = new Map();
     // we used to automatically include primitive types here, but
     // the map uses short signatures (java/util/List) which results in
@@ -22,7 +19,7 @@ function newTypeMap() {
  * @param {string} api API level = e.g "android-25"
  * @param {string} [sdk_root] Android SDK folder - defaults to ANDROID_SDK env variable
  * @param {boolean} [forceCacheRefresh] true if the cache file should be refreshed
- * @return {Promise<Map<string, JavaType>>}
+ * @return {Promise<Map<string, CEIJavaType>>}
  */
 async function loadAndroidLibrary(api, sdk_root = process.env['ANDROID_SDK'], forceCacheRefresh = false) {
 
