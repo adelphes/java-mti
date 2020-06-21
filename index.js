@@ -9,6 +9,7 @@ exports.TypeVariableType = require('./lib/JavaType').TypeVariableType;
 exports.WildcardType = require('./lib/JavaType').WildcardType;
 exports.NullType = require('./lib/JavaType').NullType;
 exports.signatureToType = require('./lib/JavaType').signatureToType;
+exports.ReifiedConstructor = require('./lib/ReifiedConstructor').ReifiedConstructor;
 exports.ReifiedMethod = require('./lib/ReifiedMethod').ReifiedMethod;
 exports.Method = require('./lib/Method').Method;
 exports.MethodBase = require('./lib/MethodBase').MethodBase;
