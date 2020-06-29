@@ -5,45 +5,59 @@ const JarClassDecoder = require('./lib/jartypedecoder');
 const FJP = require('./lib/fjp');
 const { CEIJavaType, CompiledJavaType } = require('./lib/JavaType');
 
-function newTypeMap() {
-    /** @type {Map<string,CEIJavaType>} */
+/**
+ * @typedef AndroidLibraryOpts
+ * @property {string} api API level = e.g "android-25"
+ * @property {string} [sdk_root] Android SDK folder - defaults to ANDROID_SDK env variable
+ */
+
+ /**
+  * @param {string} cache_filename full path and name of the cache file (either JSON or zipped JSON)
+  * @return {Promise<Map<string,CEIJavaType>>}
+  */
+async function loadAndroidLibrary(cache_filename) {
+
+    const file_data = await new Promise((resolve, reject) => {
+        if (/\.zip$/i.test(cache_filename)) {
+            fs.createReadStream(cache_filename)
+                .pipe(unzipper.Parse())
+                .on('entry', entry => entry.buffer().then(resolve))
+                .on('error', err => reject(new Error(`Unzip error: ${err.message}`)))
+                .on('close', () => { });
+        } else {
+            fs.readFile(cache_filename, (err, data) => err ? reject(err) : resolve(data));
+        }
+    });
+
+    const decoded = JSON.parse(file_data.toString());
+
+    if (!Array.isArray(decoded)) {
+        throw new Error(`Cache data is not a JSON array`);
+    }
+
     const typemap = new Map();
-    // we used to automatically include primitive types here, but
-    // the map uses short signatures (java/util/List) which results in
-    // conflicts for classes with no packages.
-    // eg. I = int or class I {}
+    decoded.forEach(x => {
+        const t = new CompiledJavaType(x, typemap);
+        typemap.set(t.shortSignature, t);
+    });
+
     return typemap;
 }
 
-/**
- * @param {string} api API level = e.g "android-25"
- * @param {string} [sdk_root] Android SDK folder - defaults to ANDROID_SDK env variable
- * @param {boolean} [forceCacheRefresh] true if the cache file should be refreshed
- * @return {Promise<Map<string, CEIJavaType>>}
- */
-async function loadAndroidLibrary(api, sdk_root = process.env['ANDROID_SDK'], forceCacheRefresh = false) {
+ /**
+  * @param {string} cache_filename full path and name of the cache file
+  * @param {AndroidLibraryOpts} opts
+  * @return {Promise<Map<string,CEIJavaType>>}
+  */
+ async function createAndroidLibraryCacheFile(cache_filename, opts) {
 
-    const cache_filename = path.join(`/tmp`,`decoded-jar-${api}.json`);
-    if (!forceCacheRefresh) {
-        try {
-            const decoded = JSON.parse(require('fs').readFileSync(cache_filename, 'utf8'));
-            const typemap = newTypeMap();
-            decoded.forEach(x => {
-                const t = new CompiledJavaType(x, typemap);
-                typemap.set(t.shortSignature, t);
-            });
-            return typemap;
-        } catch (err) {
-            err;
-        }
-    }
+    const {
+        api,
+        sdk_root = process.env['ANDROID_SDK'],
+    } = opts;
 
     const jar = path.join(sdk_root, 'platforms', api, 'android.jar');
     const source_base = path.join(sdk_root, 'sources', api);
-    if (!fs.existsSync(jar)) {
-        // not much we can do if the JAR is not present
-        return newTypeMap();
-    }
 
     let decoded = [];
     /** @type {Map<string, {} | Promise | null>} */
@@ -55,15 +69,13 @@ async function loadAndroidLibrary(api, sdk_root = process.env['ANDROID_SDK'], fo
             .on('entry', parse_jar_entry)
             .on('error', err => reject(new Error(`Unzip error: ${err.message}`)))
             .on('close', () => {
-                try {
-                    fs.writeFileSync(cache_filename, JSON.stringify(decoded));
-                } catch {};
-                const typemap = newTypeMap();
+                fs.writeFileSync(cache_filename, JSON.stringify(decoded));
+                const typemap = new Map();
                 decoded.forEach(x => {
                     const t = new CompiledJavaType(x, typemap);
                     typemap.set(t.shortSignature, t);
                 });
-                return typemap;
+                resolve(typemap);
             })
     })
 
@@ -141,7 +153,7 @@ function parseSourceFile(source_base, type_signature) {
             }
             let parsed;
             try {
-                parsed = FJP.java_to_json(src);
+                parsed = FJP.java_to_json(src, filename);
             } catch(e) {
                 return r(new Error(`Unparseable source: ${filename}`));
             }
@@ -187,5 +199,6 @@ function findSourceDeclaration(decoded_type, decl) {
 
 
 module.exports = {
+    createAndroidLibraryCacheFile,
     loadAndroidLibrary,
 }
