@@ -1,7 +1,7 @@
 {
   "name": "java-mti",
-  "version": "1.0.0",
-  "description": "Minified Type Information for Java types",
+  "version": "1.0.1",
+  "description": "Minified Type Information for Java",
   "main": "index.js",
   "scripts": {},
   "author": "adelphes",
