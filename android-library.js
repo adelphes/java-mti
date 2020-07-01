@@ -13,43 +13,50 @@ const { CEIJavaType, CompiledJavaType } = require('./lib/JavaType');
 
  /**
   * @param {string} cache_filename full path and name of the cache file (either JSON or zipped JSON)
+  * @param {Map<string,CEIJavaType>} [typemap] map to add the decoded types to
   * @return {Promise<Map<string,CEIJavaType>>}
   */
-async function loadAndroidLibrary(cache_filename) {
+async function loadAndroidLibrary(cache_filename, typemap = new Map()) {
 
-    const file_data = await new Promise((resolve, reject) => {
+    const file_datas = await new Promise((resolve, reject) => {
         if (/\.zip$/i.test(cache_filename)) {
+            /** @type {Promise<Buffer>[]} */
+            const entries = [];
             fs.createReadStream(cache_filename)
                 .pipe(unzipper.Parse())
-                .on('entry', entry => entry.buffer().then(resolve))
+                .on('entry', entry => entries.push(entry.buffer()))
                 .on('error', err => reject(new Error(`Unzip error: ${err.message}`)))
-                .on('close', () => { });
+                .on('close', () => {
+                    // each entry is a promise that resolves to a buffer
+                    Promise.all(entries).then(resolve);
+                });
         } else {
-            fs.readFile(cache_filename, (err, data) => err ? reject(err) : resolve(data));
+            fs.readFile(cache_filename, (err, data) => err ? reject(err) : resolve([data]));
         }
     });
 
-    const decoded = JSON.parse(file_data.toString());
+    file_datas.forEach(file_data => {
+        const decoded = JSON.parse(file_data.toString());
 
-    if (!Array.isArray(decoded)) {
-        throw new Error(`Cache data is not a JSON array`);
-    }
+        if (!Array.isArray(decoded)) {
+            throw new Error(`Cache data is not a JSON array`);
+        }
 
-    const typemap = new Map();
-    decoded.forEach(x => {
-        const t = new CompiledJavaType(x, typemap);
-        typemap.set(t.shortSignature, t);
+        decoded.forEach(x => {
+            const t = new CompiledJavaType(x, typemap);
+            typemap.set(t.shortSignature, t);
+        });
     });
 
     return typemap;
 }
 
- /**
+/**
   * @param {string} cache_filename full path and name of the cache file
   * @param {AndroidLibraryOpts} opts
   * @return {Promise<Map<string,CEIJavaType>>}
   */
- async function createAndroidLibraryCacheFile(cache_filename, opts) {
+ function createAndroidLibraryCacheFile(cache_filename, opts) {
 
     const {
         api,
@@ -59,36 +66,58 @@ async function loadAndroidLibrary(cache_filename) {
     const jar = path.join(sdk_root, 'platforms', api, 'android.jar');
     const source_base = path.join(sdk_root, 'sources', api);
 
+    return createJavaLibraryCacheFile(jar, source_base, cache_filename);
+}
+
+ /**
+  * @param {string} jar_filepath
+  * @param {string} source_base
+  * @param {string} cache_filename full path and name of the cache file
+  * @return {Promise<Map<string,CEIJavaType>>}
+  */
+ function createJavaLibraryCacheFile(jar_filepath, source_base, cache_filename) {
+
     let decoded = [];
     /** @type {Map<string, {} | Promise | null>} */
     const parsedTypeCache = new Map();
 
-    return new Promise((resolve, reject) => {
-        fs.createReadStream(jar)
-            .pipe(unzipper.Parse())
-            .on('entry', parse_jar_entry)
-            .on('error', err => reject(new Error(`Unzip error: ${err.message}`)))
-            .on('close', () => {
+    let stream;
+    if (/\.aar/i.test(jar_filepath)) {
+        // extract classes.jar from the AAR archive
+        stream = fs.createReadStream(jar_filepath)
+            .pipe(unzipper.ParseOne(/classes.jar/))
+    } else {
+        stream = fs.createReadStream(jar_filepath);
+    }
+
+    const parsed_entries = [];
+    return stream.pipe(unzipper.Parse())
+            .on('entry', entry => parsed_entries.push(parse_jar_entry(entry)))
+            .on('error', err => { throw new Error(`Unzip error: ${err.message}`) })
+            .on('close', () => { })
+            .promise()
+            .then(async () => {
+                // wait for all the entries to finish parsing
+                await Promise.all(parsed_entries)
                 fs.writeFileSync(cache_filename, JSON.stringify(decoded));
                 const typemap = new Map();
                 decoded.forEach(x => {
                     const t = new CompiledJavaType(x, typemap);
                     typemap.set(t.shortSignature, t);
                 });
-                resolve(typemap);
+                return typemap;
             })
-    })
 
     /**
      * @param {unzipper.Entry} entry 
      */
-    function parse_jar_entry(entry) {
+    async function parse_jar_entry(entry) {
         const fileName = entry.path;
         // const type = entry.type; // 'Directory' or 'File'
         // const size = entry.vars.uncompressedSize; // There is also compressedSize;
         const name_match = fileName.match(/(.+\/\w+(\$\w+)*)\.class$/);
         if (name_match) {
-            Promise.all([
+            await Promise.all([
                 entry.buffer(),
                 getParsedType(source_base, name_match[1], parsedTypeCache),
             ]).then(([classbytes, parsed_type]) => {
@@ -97,7 +126,7 @@ async function loadAndroidLibrary(cache_filename) {
                 decoded.push(decoded_type);
             });
         } else {
-            entry.autodrain();
+            await entry.autodrain();
         }
     }
 }
@@ -108,19 +137,24 @@ async function loadAndroidLibrary(cache_filename) {
  * @param {Map} cache
  */
 async function getParsedType(source_base, short_signature, cache) {
+    // don't try and parse local and anonymous types
+    if (/\$\d+[^$]*$/.test(short_signature)) {
+        return null;
+    }
     const [toptype, ...enctypes] = short_signature.split('$');
     let parsed = cache.get(toptype);
     if (!parsed) {
-        const parsed = parseSourceFile(source_base, toptype)
+        const promise = parseSourceFile(source_base, toptype)
             .then(parsed => {
                 cache.set(toptype, parsed);
                 return getParsedType(source_base, short_signature, cache);
             });
-        cache.set(toptype, parsed);
-        return parsed;
+        cache.set(toptype, promise);
+        return promise;
     }
     if (parsed instanceof Promise) {
-        parsed = await parsed;
+        await parsed;
+        return getParsedType(source_base, short_signature, cache);
     }
     if (parsed instanceof Error) {
         return null;
@@ -129,11 +163,12 @@ async function getParsedType(source_base, short_signature, cache) {
     let fqtn = toptype.replace(/\//g, '.');
     for (let enctype of enctypes) {
         fqtn += `.${enctype}`;
-        parsed = parsed.decls.find(d => d.istype && d.fqtn === fqtn);
-        if (!parsed) {
+        const inner_type = parsed.decls.find(d => d.istype && d.fqtn === fqtn);
+        if (!inner_type) {
             // enclosed type not found
-            break;
+            return null;
         }
+        parsed = inner_type;
     }
     return parsed;
 }
@@ -197,8 +232,6 @@ function findSourceDeclaration(decoded_type, decl) {
     return match;
 }
 
-
-module.exports = {
-    createAndroidLibraryCacheFile,
-    loadAndroidLibrary,
-}
+exports.createAndroidLibraryCacheFile = createAndroidLibraryCacheFile;
+exports.createJavaLibraryCacheFile = createJavaLibraryCacheFile;
+exports.loadAndroidLibrary = loadAndroidLibrary;
