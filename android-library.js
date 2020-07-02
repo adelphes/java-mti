@@ -13,10 +13,11 @@ const { CEIJavaType, CompiledJavaType } = require('./lib/JavaType');
 
  /**
   * @param {string} cache_filename full path and name of the cache file (either JSON or zipped JSON)
+  * @param {string[]} [zip_file_filter] set of names to match against files extracted from the zipped JSON
   * @param {Map<string,CEIJavaType>} [typemap] map to add the decoded types to
   * @return {Promise<Map<string,CEIJavaType>>}
   */
-async function loadAndroidLibrary(cache_filename, typemap = new Map()) {
+async function loadJavaLibraryCacheFile(cache_filename, zip_file_filter, typemap = new Map()) {
 
     const file_datas = await new Promise((resolve, reject) => {
         if (/\.zip$/i.test(cache_filename)) {
@@ -24,7 +25,15 @@ async function loadAndroidLibrary(cache_filename, typemap = new Map()) {
             const entries = [];
             fs.createReadStream(cache_filename)
                 .pipe(unzipper.Parse())
-                .on('entry', entry => entries.push(entry.buffer()))
+                .on('entry', 
+                    /** @param {unzipper.Entry} entry */
+                entry => {
+                    if (Array.isArray(zip_file_filter) && !zip_file_filter.find(filter => entry.path.includes(filter))) {
+                        entry.autodrain();
+                        return;
+                    }
+                    entries.push(entry.buffer());
+                })
                 .on('error', err => reject(new Error(`Unzip error: ${err.message}`)))
                 .on('close', () => {
                     // each entry is a promise that resolves to a buffer
@@ -234,4 +243,4 @@ function findSourceDeclaration(decoded_type, decl) {
 
 exports.createAndroidLibraryCacheFile = createAndroidLibraryCacheFile;
 exports.createJavaLibraryCacheFile = createJavaLibraryCacheFile;
-exports.loadAndroidLibrary = loadAndroidLibrary;
+exports.loadJavaLibraryCacheFile = loadJavaLibraryCacheFile;

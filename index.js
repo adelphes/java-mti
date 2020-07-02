@@ -1,5 +1,5 @@
 
-exports.loadAndroidLibrary = require('./android-library').loadAndroidLibrary;
+exports.loadJavaLibraryCacheFile = require('./android-library').loadJavaLibraryCacheFile;
 exports.JavaType = require('./lib/JavaType').JavaType;
 exports.PrimitiveType = require('./lib/JavaType').PrimitiveJavaType;
 exports.ArrayType = require('./lib/ArrayType').ArrayJavaType;
