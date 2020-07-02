@@ -1,11 +1,11 @@
 {
   "name": "java-mti",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Minified Type Information for Java",
   "main": "index.js",
   "scripts": {},
   "author": "adelphes",
   "dependencies": {
-    "unzipper": "^0.10.11"
+    "unzipper": "0.10.11"
   }
 }
