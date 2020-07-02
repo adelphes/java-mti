@@ -124,7 +124,7 @@ async function loadJavaLibraryCacheFile(cache_filename, zip_file_filter, typemap
         const fileName = entry.path;
         // const type = entry.type; // 'Directory' or 'File'
         // const size = entry.vars.uncompressedSize; // There is also compressedSize;
-        const name_match = fileName.match(/(.+\/\w+(\$\w+)*)\.class$/);
+        const name_match = fileName.match(/(.+\/[a-zA-Z_]\w*(\$[a-zA-Z_]\w*)*)\.class$/);
         if (name_match) {
             await Promise.all([
                 entry.buffer(),
