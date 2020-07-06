@@ -19,8 +19,37 @@ const { CEIJavaType, CompiledJavaType } = require('./lib/JavaType');
   */
 async function loadJavaLibraryCacheFile(cache_filename, zip_file_filter, typemap = new Map()) {
 
-    const file_datas = await new Promise((resolve, reject) => {
+    function readManifest() {
+        return new Promise((resolve, reject) => {
+            fs.createReadStream(cache_filename)
+                .pipe(unzipper.ParseOne(/^manifest\.json$/))
+                .on('entry', entry => {
+                    entry.buffer().then(buf => resolve(JSON.parse(buf.toString())))
+                })
+                .on('error', err => reject(err))
+        });
+    }
+
+
+    const file_datas = await new Promise(async (resolve, reject) => {
         if (/\.zip$/i.test(cache_filename)) {
+
+            /** @type {string[]} */
+            let libs_with_dependencies = null;
+            // if there's a filter, work out the set of libraries and their (recursive) dependencies
+            if (zip_file_filter) {
+                const manifest = await readManifest();
+                libs_with_dependencies = [];
+                function addlib(lib) {
+                    if (libs_with_dependencies.includes(lib)) return;
+                    libs_with_dependencies.push(lib);
+                    for (let dep of manifest[lib]) {
+                        addlib(dep);
+                    }
+                }
+                zip_file_filter.forEach(lib => addlib(lib));
+            }
+
             /** @type {Promise<Buffer>[]} */
             const entries = [];
             fs.createReadStream(cache_filename)
@@ -28,7 +57,12 @@ async function loadJavaLibraryCacheFile(cache_filename, zip_file_filter, typemap
                 .on('entry', 
                     /** @param {unzipper.Entry} entry */
                 entry => {
-                    if (Array.isArray(zip_file_filter) && !zip_file_filter.find(filter => entry.path.includes(filter))) {
+                    const ignore_entry = 
+                        entry.type !== 'File'
+                        || !entry.path.startsWith('cache/')
+                        || !entry.path.endsWith('.json')
+                        || (Array.isArray(libs_with_dependencies) && !libs_with_dependencies.find(filter => entry.path.includes(filter)))
+                    if (ignore_entry) {
                         entry.autodrain();
                         return;
                     }
