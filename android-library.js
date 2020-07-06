@@ -43,6 +43,7 @@ async function loadJavaLibraryCacheFile(cache_filename, zip_file_filter, typemap
                 function addlib(lib) {
                     if (libs_with_dependencies.includes(lib)) return;
                     libs_with_dependencies.push(lib);
+                    if (!Array.isArray(manifest[lib])) return;
                     for (let dep of manifest[lib]) {
                         addlib(dep);
                     }
